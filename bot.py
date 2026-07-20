@@ -13,7 +13,7 @@ bot = commands.Bot(
     intents=intents
 )
 
-CHANNEL_ID = 0  # Hier komt straks je meldingskanaal ID
+CHANNEL_ID = 1528557273931055265 Hier komt straks je meldingskanaal ID
 
 
 @bot.event

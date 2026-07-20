@@ -13,13 +13,15 @@ bot = commands.Bot(
     intents=intents
 )
 
-CHANNEL_ID = 1528557273931055265 
+CHANNEL_ID = 1528557273931055265
 
 
 @bot.event
 async def on_ready():
     print(f"Bot online als {bot.user}")
-    flight_check.start()
+
+    if not flight_check.is_running():
+        flight_check.start()
 
 
 @tasks.loop(seconds=30)
@@ -36,9 +38,7 @@ async def flight_check():
                 f"📅 Datum: {result['date']}\n"
                 f"💶 Prijs: €{result['price']} p.p.\n"
                 f"🔗 Link: {result['link']}"
-        )
-        
-        
+            )
 
 
 @bot.command()

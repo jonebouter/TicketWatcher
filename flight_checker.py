@@ -7,37 +7,30 @@ SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 PASSENGERS = 3
 MAX_PRICE_PER_PERSON = 1100
 
-DEPARTURE_AIRPORTS = [
-    "AMS",
-    "BRU"
-]
-
+DEPARTURE_AIRPORTS = ["AMS", "BRU"]
 ARRIVAL_AIRPORT = "CUR"
 
-BASE_DEPARTURE_DATE = "2026-08-14"
-BASE_RETURN_DATE = "2026-08-25"
+DEPARTURE_DATE = "2026-08-14"
+RETURN_DATE = "2026-08-25"
 
 
-def create_date_variations(date_string):
-    date = datetime.strptime(date_string, "%Y-%m-%d")
+def date_range(date):
+    base = datetime.strptime(date, "%Y-%m-%d")
 
-    dates = []
-
-    for offset in range(-2, 3):
-        new_date = date + timedelta(days=offset)
-        dates.append(new_date.strftime("%Y-%m-%d"))
-
-    return dates
+    return [
+        (base + timedelta(days=x)).strftime("%Y-%m-%d")
+        for x in range(-2, 3)
+    ]
 
 
-def search_flights(departure, departure_date):
+def search_google_flights(origin, date):
 
     params = {
         "engine": "google_flights",
-        "departure_id": departure,
+        "departure_id": origin,
         "arrival_id": ARRIVAL_AIRPORT,
-        "outbound_date": departure_date,
-        "return_date": BASE_RETURN_DATE,
+        "outbound_date": date,
+        "return_date": RETURN_DATE,
         "currency": "EUR",
         "hl": "nl",
         "gl": "nl",
@@ -45,27 +38,40 @@ def search_flights(departure, departure_date):
         "api_key": SERPAPI_KEY
     }
 
-    response = requests.get(
+    r = requests.get(
         "https://serpapi.com/search",
         params=params
     )
 
-    data = response.json()
+    return r.json()
 
-    return data
+
+def check_baggage(flight):
+
+    extensions = []
+
+    for leg in flight.get("flights", []):
+        extensions.extend(
+            leg.get("extensions", [])
+        )
+
+    text = " ".join(extensions).lower()
+
+    if "carry" in text or "handbagage" in text:
+        return "✅ Inbegrepen"
+
+    return "⚠️ Niet bevestigd"
 
 
 def check_flights():
 
-    best_deal = None
-
-    departure_dates = create_date_variations(BASE_DEPARTURE_DATE)
+    best = None
 
     for airport in DEPARTURE_AIRPORTS:
 
-        for date in departure_dates:
+        for date in date_range(DEPARTURE_DATE):
 
-            data = search_flights(
+            data = search_google_flights(
                 airport,
                 date
             )
@@ -77,48 +83,45 @@ def check_flights():
 
             for flight in flights:
 
-                total_price = flight.get(
-                    "price"
-                )
+                total = flight.get("price")
 
-                if not total_price:
+                if not total:
+                    continue
+
+                price_pp = total / PASSENGERS
+
+                if price_pp > MAX_PRICE_PER_PERSON:
                     continue
 
 
-                price_per_person = (
-                    total_price / PASSENGERS
+                baggage = check_baggage(flight)
+
+                airline = (
+                    flight["flights"][0]
+                    .get("airline", "Onbekend")
                 )
 
 
-                if price_per_person <= MAX_PRICE_PER_PERSON:
+                if (
+                    best is None
+                    or price_pp < best["price"]
+                ):
 
-                    airline = flight["flights"][0]["airline"]
-
-                    google_link = (
-                        data
-                        .get("search_metadata", {})
-                        .get("google_flights_url")
-                    )
-
-
-                    if (
-                        best_deal is None
-                        or price_per_person < best_deal["price"]
-                    ):
-
-                        best_deal = {
-                            "found": True,
-                            "route": f"{airport} → {ARRIVAL_AIRPORT}",
-                            "date": date,
-                            "airline": airline,
-                            "price": round(price_per_person),
-                            "total_price": total_price,
-                            "link": google_link
-                        }
+                    best = {
+                        "found": True,
+                        "route": f"{airport} → {ARRIVAL_AIRPORT}",
+                        "date": date,
+                        "price": round(price_pp),
+                        "total": total,
+                        "airline": airline,
+                        "baggage": baggage,
+                        "link": data["search_metadata"]
+                        ["google_flights_url"]
+                    }
 
 
-    if best_deal:
-        return best_deal
+    if best:
+        return best
 
 
     return {

@@ -1,12 +1,25 @@
-from datetime import datetime
+import os
+
+MAX_PRICE = 600
 
 def check_flights():
-    # Dit is voorlopig een testfunctie.
-    # Later koppelen we hier een echte vluchtprijs-API aan.
-
-    return {
+    # Tijdelijke testdata
+    flight = {
         "route": "AMS → CUR",
         "date": "14 augustus - 25 augustus",
         "price": 499,
-        "found": True
+        "link": "https://www.google.com/flights"
+    }
+
+    if flight["price"] <= MAX_PRICE:
+        return {
+            "found": True,
+            "route": flight["route"],
+            "date": flight["date"],
+            "price": flight["price"],
+            "link": flight["link"]
+        }
+
+    return {
+        "found": False
     }

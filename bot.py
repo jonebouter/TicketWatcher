@@ -10,7 +10,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 
-CHECK_INTERVAL_HOURS = 1
+CHECK_INTERVAL_MINUTES = 60
 
 last_best_price = None
 

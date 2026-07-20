@@ -1,7 +1,7 @@
-import discord
-from discord.ext import tasks
 import os
 import asyncio
+import discord
+from discord.ext import commands, tasks
 
 from flight_checker import check_flights
 
@@ -11,100 +11,140 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 
 intents = discord.Intents.default()
+intents.message_content = True
 
-bot = discord.Client(
+bot = commands.Bot(
+    command_prefix="!",
     intents=intents
 )
 
 
-sent_deals = set()
+CHECK_INTERVAL_MINUTES = 10
 
 
 @bot.event
 async def on_ready():
-    print(f"Ingelogd als {bot.user}")
+    print(f"✅ Ingelogd als {bot.user}")
 
-    if not flight_check.is_running():
-        flight_check.start()
+    if not flight_check_loop.is_running():
+        flight_check_loop.start()
 
 
-@tasks.loop(minutes=10)
-async def flight_check():
+async def send_flight_alerts(results):
 
-    print("Flight check gestart...")
+    if not results:
+        return
+
+    channel = bot.get_channel(CHANNEL_ID)
+
+    if channel is None:
+        print("❌ Kanaal niet gevonden")
+        return
+
+
+    for flight in results:
+
+        message = f"""
+🚨 **NIEUWE BETERE DEAL!**
+
+✈️ {flight.get('origin')} → {flight.get('destination')}
+
+📅 {flight.get('date')}
+
+👥 {flight.get('passengers', 3)} personen
+
+💶 €{flight.get('price')} p.p.
+
+💰 Totaal: €{flight.get('total_price')}
+
+✈️ {flight.get('airline', 'Onbekend')}
+
+🧳 {flight.get('baggage', 'Niet bevestigd')}
+
+🔗 {flight.get('link')}
+"""
+
+        await channel.send(message)
+
+
+
+@tasks.loop(minutes=CHECK_INTERVAL_MINUTES)
+async def flight_check_loop():
+
+    print("🔎 Flight check gestart...")
 
     try:
 
-        # BELANGRIJK:
-        # requests blijft werken zonder Discord te blokkeren
+        results = await asyncio.to_thread(
+            check_flights
+        )
+
+        if results:
+            await send_flight_alerts(results)
+
+        else:
+            print("Geen nieuwe deals gevonden")
+
+
+    except Exception as e:
+
+        print(
+            f"❌ Flight checker fout: {e}"
+        )
+
+
+
+@bot.command()
+async def test(ctx):
+
+    await ctx.send(
+        "✈️ Flight checker test gestart..."
+    )
+
+    try:
+
         results = await asyncio.to_thread(
             check_flights
         )
 
 
         if not results:
-            print("Geen nieuwe deals")
+
+            await ctx.send(
+                "✅ Test klaar. Geen deals gevonden."
+            )
+
             return
-
-
-        channel = bot.get_channel(
-            CHANNEL_ID
-        )
 
 
         for flight in results:
 
-
-            deal_id = (
-                flight.get("origin"),
-                flight.get("date"),
-                flight.get("price")
-            )
-
-
-            # voorkomt dubbele meldingen
-            if deal_id in sent_deals:
-                continue
-
-
-            sent_deals.add(deal_id)
-
-
             message = f"""
-🚨 **NIEUWE BETERE DEAL!**
+🚨 **TEST DEAL**
 
 ✈️ {flight.get('origin')} → {flight.get('destination')}
 
-📅 Datum:
-{flight.get('date')}
+📅 {flight.get('date')}
 
-👥 Personen:
-{flight.get('passengers', 3)}
+👥 {flight.get('passengers', 3)} personen
 
-💶 Prijs:
-€{flight.get('price')} p.p.
+💶 €{flight.get('price')} p.p.
 
-💰 Totaal:
-€{flight.get('total')}
+✈️ {flight.get('airline', 'Onbekend')}
 
-✈️ Airline:
-{flight.get('airline', 'Onbekend')}
+🧳 {flight.get('baggage', 'Niet bevestigd')}
 
-🧳 Bagage:
-{flight.get('baggage', '⚠️ Niet bevestigd')}
-
-🔗 Link:
-{flight.get('link')}
+🔗 {flight.get('link')}
 """
 
-
-            await channel.send(message)
+            await ctx.send(message)
 
 
     except Exception as e:
 
-        print("Fout bij flight check:")
-        print(e)
+        await ctx.send(
+            f"❌ Test fout: {e}"
+        )
 
 
 

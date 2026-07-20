@@ -7,11 +7,20 @@ from flight_checker import check_flights
 
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+
+if not TOKEN:
+    raise Exception("DISCORD_TOKEN ontbreekt")
+
+if not CHANNEL_ID:
+    raise Exception("CHANNEL_ID ontbreekt")
+
+CHANNEL_ID = int(CHANNEL_ID)
 
 
 intents = discord.Intents.default()
 intents.message_content = True
+
 
 bot = commands.Bot(
     command_prefix="!",
@@ -24,16 +33,22 @@ CHECK_INTERVAL_MINUTES = 10
 
 @bot.event
 async def on_ready():
+
     print(f"✅ Ingelogd als {bot.user}")
 
     if not flight_check_loop.is_running():
         flight_check_loop.start()
 
 
-async def send_flight_alerts(results):
 
-    if not results:
+async def send_flight_alert(result):
+
+    if not result:
         return
+
+    if not result.get("found"):
+        return
+
 
     channel = bot.get_channel(CHANNEL_ID)
 
@@ -42,29 +57,28 @@ async def send_flight_alerts(results):
         return
 
 
-    for flight in results:
-
-        message = f"""
+    message = f"""
 🚨 **NIEUWE BETERE DEAL!**
 
-✈️ {flight.get('origin')} → {flight.get('destination')}
+✈️ {result.get('route')}
 
-📅 {flight.get('date')}
+📅 {result.get('date')}
 
-👥 {flight.get('passengers', 3)} personen
+👥 3 personen
 
-💶 €{flight.get('price')} p.p.
+💶 €{result.get('price')} p.p.
 
-💰 Totaal: €{flight.get('total_price')}
+💰 Totaal: €{result.get('total')}
 
-✈️ {flight.get('airline', 'Onbekend')}
+✈️ {result.get('airline', 'Onbekend')}
 
-🧳 {flight.get('baggage', 'Niet bevestigd')}
+🧳 Handbagage: ⚠️ Niet bevestigd
 
-🔗 {flight.get('link')}
+🔗 {result.get('link')}
 """
 
-        await channel.send(message)
+
+    await channel.send(message)
 
 
 
@@ -73,16 +87,20 @@ async def flight_check_loop():
 
     print("🔎 Flight check gestart...")
 
+
     try:
 
-        results = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             check_flights
         )
 
-        if results:
-            await send_flight_alerts(results)
+
+        if result.get("found"):
+
+            await send_flight_alert(result)
 
         else:
+
             print("Geen nieuwe deals gevonden")
 
 
@@ -101,14 +119,18 @@ async def test(ctx):
         "✈️ Flight checker test gestart..."
     )
 
+
     try:
 
-        results = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             check_flights
         )
 
 
-        if not results:
+        print("TEST RESULT:", result)
+
+
+        if not result.get("found"):
 
             await ctx.send(
                 "✅ Test klaar. Geen deals gevonden."
@@ -117,30 +139,38 @@ async def test(ctx):
             return
 
 
-        for flight in results:
 
-            message = f"""
+        message = f"""
 🚨 **TEST DEAL**
 
-✈️ {flight.get('origin')} → {flight.get('destination')}
+✈️ {result.get('route')}
 
-📅 {flight.get('date')}
+📅 {result.get('date')}
 
-👥 {flight.get('passengers', 3)} personen
+👥 3 personen
 
-💶 €{flight.get('price')} p.p.
+💶 €{result.get('price')} p.p.
 
-✈️ {flight.get('airline', 'Onbekend')}
+💰 Totaal: €{result.get('total')}
 
-🧳 {flight.get('baggage', 'Niet bevestigd')}
+✈️ {result.get('airline', 'Onbekend')}
 
-🔗 {flight.get('link')}
+🧳 Handbagage: ⚠️ Niet bevestigd
+
+🔗 {result.get('link')}
 """
 
-            await ctx.send(message)
+
+        await ctx.send(message)
+
 
 
     except Exception as e:
+
+        print(
+            "TEST ERROR:",
+            e
+        )
 
         await ctx.send(
             f"❌ Test fout: {e}"

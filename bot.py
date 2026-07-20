@@ -1,6 +1,7 @@
 import os
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
+from flight_checker import check_flights
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
@@ -12,12 +13,28 @@ bot = commands.Bot(
     intents=intents
 )
 
+CHANNEL_ID = 0  # Hier komt straks je meldingskanaal ID
+
+
 @bot.event
 async def on_ready():
     print(f"Bot online als {bot.user}")
+    flight_check.start()
+
+
+@tasks.loop(hours=24)
+async def flight_check():
+    result = check_flights()
+
+    if result["found"]:
+        print(
+            f"Gevonden: {result['route']} €{result['price']}"
+        )
+
 
 @bot.command()
 async def test(ctx):
     await ctx.send("✈️ TicketWatcher werkt!")
+
 
 bot.run(TOKEN)

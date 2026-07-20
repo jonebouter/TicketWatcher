@@ -39,87 +39,49 @@ MAX_PRICE_PER_PERSON = 1100
 def search_flights(origin, outbound, returning):
 
     params = {
-
         "engine": "google_flights",
-
         "api_key": SERPAPI_KEY,
 
         "hl": "nl",
-
         "gl": "nl",
-
         "currency": "EUR",
 
         "departure_id": origin,
-
         "arrival_id": DESTINATION,
 
         "outbound_date": outbound,
-
         "return_date": returning,
 
         "travel_class": 1,
-
         "adults": PASSENGERS
     }
 
 
-    try:
-
-        response = requests.get(
-            "https://serpapi.com/search",
-            params=params,
-            timeout=30
-        )
+    r = requests.get(
+        "https://serpapi.com/search",
+        params=params,
+        timeout=30
+    )
 
 
-        data = response.json()
-
-
-        if "error" in data:
-
-            print(
-                "SerpAPI fout:",
-                data["error"]
-            )
-
-            return {}
-
-
-        return data
-
-
-    except Exception as e:
-
-        print(
-            "API fout:",
-            e
-        )
-
-        return {}
-
+    return r.json()
 
 
 
 def check_flights():
 
-    cheapest = None
-
-    cheapest_price = None
-
+    flights = []
 
 
     for origin in ORIGINS:
 
-
         for outbound in OUTBOUND_DATES:
-
 
             for returning in RETURN_DATES:
 
 
                 print(
-                    f"Zoeken {origin} {outbound} - {returning}"
+                    f"Zoeken {origin} naar {DESTINATION}"
                 )
 
 
@@ -130,154 +92,104 @@ def check_flights():
                 )
 
 
-                flights = []
-
-
                 flights.extend(
-                    data.get(
-                        "best_flights",
-                        []
-                    )
+                    data.get("best_flights", [])
                 )
 
-
                 flights.extend(
-                    data.get(
-                        "other_flights",
-                        []
-                    )
+                    data.get("other_flights", [])
                 )
 
 
 
-                for flight in flights:
-
-
-                    price = flight.get(
-                        "price"
-                    )
-
-
-                    if not price:
-                        continue
+    cheapest = None
+    cheapest_pp = None
 
 
 
-                    price_pp = price / PASSENGERS
+    for flight in flights:
+
+
+        try:
+
+            first = flight["flights"][0]
+
+
+            arrival = first["arrival_airport"]["id"]
+
+
+            # Alleen Curaçao toestaan
+            if arrival != DESTINATION:
+                continue
+
+
+            price = flight.get("price")
+
+
+            if not price:
+                continue
+
+
+            price_pp = price / PASSENGERS
+
+
+            if price_pp > MAX_PRICE_PER_PERSON:
+                continue
 
 
 
-                    if price_pp > MAX_PRICE_PER_PERSON:
+            if (
+                cheapest_pp is None
+                or price_pp < cheapest_pp
+            ):
 
-                        continue
-
-
-
-                    if (
-                        cheapest_price is None
-                        or price_pp < cheapest_price
-                    ):
+                cheapest_pp = price_pp
+                cheapest = flight
 
 
-                        cheapest = flight
 
-                        cheapest_price = price_pp
+        except Exception:
 
+            continue
 
 
 
     if not cheapest:
 
-
         return {
-
             "found": False
-
         }
 
 
 
-
-    first = cheapest.get(
-        "flights",
-        [{}]
-    )[0]
-
-
-
-    departure = first.get(
-        "departure_airport",
-        {}
-    ).get(
-        "id",
-        "?"
-    )
-
-
-    arrival = first.get(
-        "arrival_airport",
-        {}
-    ).get(
-        "id",
-        "?"
-    )
-
-
-
-    airline = first.get(
-        "airline",
-        "Onbekend"
-    )
-
+    first = cheapest["flights"][0]
 
 
     return {
 
-
         "found": True,
 
-
-        "origin": departure,
-
-
-        "destination": arrival,
-
-
         "route":
-            f"{departure} → {arrival}",
+            f"{first['departure_airport']['id']} → {first['arrival_airport']['id']}",
 
 
         "date":
-            first.get(
-                "departure_airport",
-                {}
-            ).get(
-                "time",
-                ""
-            )[:10],
-
+            first["departure_airport"]["time"][:10],
 
 
         "price":
-            round(
-                cheapest_price
-            ),
-
+            round(cheapest_pp),
 
 
         "total":
-            cheapest.get(
-                "price"
-            ),
-
+            cheapest["price"],
 
 
         "airline":
-            airline,
-
-
-        "passengers":
-            PASSENGERS,
+            first.get(
+                "airline",
+                "Onbekend"
+            ),
 
 
         "link":

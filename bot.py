@@ -9,6 +9,8 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 CHANNEL_ID = 1528557273931055265
 
+PRICE_FILE = "last_deal.txt"
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -18,6 +20,24 @@ bot = commands.Bot(
     command_prefix="!",
     intents=intents
 )
+
+
+def get_last_price():
+
+    try:
+        with open(PRICE_FILE, "r") as file:
+            return float(file.read())
+
+    except:
+        return 99999
+
+
+
+def save_price(price):
+
+    with open(PRICE_FILE, "w") as file:
+        file.write(str(price))
+
 
 
 @bot.event
@@ -42,28 +62,38 @@ async def flight_check():
 
         if result["found"]:
 
-            channel = bot.get_channel(CHANNEL_ID)
+            last_price = get_last_price()
 
 
-            if channel:
+            # alleen melden als hij goedkoper is
+            if result["price"] < last_price:
 
-                await channel.send(
-                    f"🚨 **TicketWatcher DEAL!**\n\n"
-                    f"✈️ Route: {result['route']}\n"
-                    f"📅 Datum: {result['date']}\n"
-                    f"👥 Personen: 3\n\n"
-                    f"💶 Prijs: €{result['price']} p.p.\n"
-                    f"💰 Totaal: €{result['total']}\n\n"
-                    f"✈️ Airline: {result['airline']}\n"
-                    f"🧳 Handbagage: {result['baggage']}\n\n"
-                    f"🔗 Google Flights:\n{result['link']}"
-                )
+
+                channel = bot.get_channel(CHANNEL_ID)
+
+
+                if channel:
+
+                    await channel.send(
+                        f"🚨 **NIEUWE BETERE DEAL!**\n\n"
+                        f"✈️ {result['route']}\n"
+                        f"📅 {result['date']}\n"
+                        f"👥 3 personen\n\n"
+                        f"💶 €{result['price']} p.p.\n"
+                        f"💰 Totaal: €{result['total']}\n\n"
+                        f"✈️ {result['airline']}\n"
+                        f"🧳 {result['baggage']}\n\n"
+                        f"🔗 {result['link']}"
+                    )
+
+
+                save_price(result["price"])
 
 
     except Exception as e:
 
         print(
-            f"Fout bij vluchtcontrole: {e}"
+            f"Controle fout: {e}"
         )
 
 
@@ -81,32 +111,6 @@ async def test(ctx):
     await ctx.send(
         "✈️ TicketWatcher werkt!"
     )
-
-
-
-@bot.command()
-async def check(ctx):
-
-    await ctx.send(
-        "🔎 Handmatige vluchtcontrole gestart..."
-    )
-
-    result = check_flights()
-
-
-    if result["found"]:
-
-        await ctx.send(
-            f"🚨 Deal gevonden!\n"
-            f"{result['route']}\n"
-            f"€{result['price']} p.p."
-        )
-
-    else:
-
-        await ctx.send(
-            "Geen deal gevonden."
-        )
 
 
 

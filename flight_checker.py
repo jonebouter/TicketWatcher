@@ -102,6 +102,23 @@ def check_flights():
 
     for flight in all_flights:
 
+        flights = flight.get("flights", [])
+
+        if not flights:
+            continue
+
+
+        arrival = flights[-1].get(
+            "arrival_airport",
+            {}
+        ).get("id")
+
+
+        # Alleen Curaçao toestaan
+        if arrival != DESTINATION:
+            continue
+
+
         total_price = flight.get("price")
 
 
@@ -126,12 +143,17 @@ def check_flights():
 
     if cheapest_flight:
 
-
         first = cheapest_flight["flights"][0]
 
 
         departure = first["departure_airport"]["id"]
         arrival = first["arrival_airport"]["id"]
+
+
+        if arrival != DESTINATION:
+            return {
+                "found": False
+            }
 
 
         airline = first.get(

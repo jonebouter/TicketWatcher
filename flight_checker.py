@@ -3,6 +3,8 @@ import requests
 
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
+MAX_PRICE = 800
+
 
 def check_flights():
 
@@ -32,23 +34,20 @@ def check_flights():
             "found": False
         }
 
-
     vlucht = data["best_flights"][0]
 
     prijs = vlucht["price"]
 
-    airline = vlucht["flights"][0]["airline"]
-
-    vertrek = vlucht["flights"][0]["departure_airport"]["time"]
-
-    aankomst = vlucht["flights"][0]["arrival_airport"]["time"]
-
+    if prijs > MAX_PRICE:
+        return {
+            "found": False
+        }
 
     return {
         "found": True,
         "route": "AMS → CUR",
-        "date": f"{vertrek} - {aankomst}",
+        "date": vlucht["flights"][0]["departure_airport"]["time"],
         "price": prijs,
-        "airline": airline,
+        "airline": vlucht["flights"][0]["airline"],
         "link": data["search_metadata"]["google_flights_url"]
     }

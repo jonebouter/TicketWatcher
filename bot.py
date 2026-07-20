@@ -26,10 +26,18 @@ async def on_ready():
 async def flight_check():
     result = check_flights()
 
-    if result["found"]:
-        print(
-            f"Gevonden: {result['route']} €{result['price']}"
+if result["found"]:
+    channel = bot.get_channel(CHANNEL_ID)
+
+    if channel:
+        await channel.send(
+            f"✈️ **Goedkope vlucht gevonden!**\n"
+            f"🌍 Route: {result['route']}\n"
+            f"📅 Datum: {result['date']}\n"
+            f"💶 Prijs: €{result['price']} p.p."
         )
+        
+        
 
 
 @bot.command()

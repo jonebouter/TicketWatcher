@@ -34,7 +34,8 @@ async def flight_check():
                 f"✈️ **Goedkope vlucht gevonden!**\n"
                 f"🌍 Route: {result['route']}\n"
                 f"📅 Datum: {result['date']}\n"
-                f"💶 Prijs: €{result['price']} p.p."
+                f"💶 Prijs: €{result['price']} p.p.\n"
+                f"🔗 Link: {result['link']}"
         )
         
         

@@ -19,11 +19,15 @@ bot = commands.Bot(
 )
 
 
-CHECK_INTERVAL_MINUTES = 10
+CHECK_INTERVAL_MINUTES = 15
+
+last_best_price = None
+
 
 
 @bot.event
 async def on_ready():
+
     print(f"✅ Ingelogd als {bot.user}")
 
     if not flight_check_loop.is_running():
@@ -35,7 +39,7 @@ async def on_ready():
 async def test(ctx):
 
     await ctx.send(
-        "✅ Bot werkt. Discord verbinding en commands zijn actief."
+        "✅ Bot werkt. Commands actief."
     )
 
 
@@ -44,55 +48,48 @@ async def test(ctx):
 async def best(ctx):
 
     await ctx.send(
-        "🔎 Goedkoopste vlucht zoeken..."
+        "🔎 Zoek goedkoopste vlucht..."
     )
 
     try:
 
-        result = await asyncio.to_thread(
+        flight = await asyncio.to_thread(
             check_flights
         )
 
 
-        # nieuwe flight_checker geeft 1 dict terug
-        if not result.get("found"):
+        if not flight["found"]:
 
             await ctx.send(
-                "❌ Geen geschikte vlucht gevonden."
+                "❌ Geen vlucht gevonden."
             )
 
             return
 
 
-        message = f"""
-🏆 **GOEDKOOPSTE VLUCHT OP DIT MOMENT**
+        await ctx.send(
+f"""
+🏆 **GOEDKOOPSTE VLUCHT**
 
-✈️ Route:
-{result.get('route')}
+✈️ {flight['route']}
 
-📅 Datum:
-{result.get('date')}
+📅 {flight['date']}
 
-💶 Prijs:
-€{result.get('price')} p.p.
+💶 €{flight['price']} p.p.
 
-💰 Totaal:
-€{result.get('total')}
+💰 Totaal: €{flight['total']}
 
-✈️ Maatschappij:
-{result.get('airline')}
+✈️ {flight['airline']}
 
-🔗 Link:
-{result.get('link')}
+🔗 {flight['link']}
 """
-
-        await ctx.send(message)
+        )
 
 
     except Exception as e:
 
         await ctx.send(
-            f"❌ Fout bij zoeken: {e}"
+            f"❌ Fout: {e}"
         )
 
 
@@ -100,38 +97,62 @@ async def best(ctx):
 @tasks.loop(minutes=CHECK_INTERVAL_MINUTES)
 async def flight_check_loop():
 
-    print("🔎 Automatische flight check gestart...")
+    global last_best_price
+
+
+    print("🔎 Automatische prijscheck...")
+
 
     try:
 
-        result = await asyncio.to_thread(
+        flight = await asyncio.to_thread(
             check_flights
         )
 
 
-        if result.get("found"):
+        if not flight["found"]:
+            return
+
+
+
+        price = flight["price"]
+
+
+        if price > 1100:
+            return
+
+
+
+        if (
+            last_best_price is None
+            or price < last_best_price
+        ):
+
+            last_best_price = price
+
 
             channel = bot.get_channel(
                 CHANNEL_ID
             )
 
+
             if channel:
 
                 await channel.send(
-                    f"""
-🚨 **NIEUWE DEAL GEVONDEN**
+f"""
+🚨 **NIEUWE GOEDKOPERE DEAL**
 
-✈️ {result.get('route')}
+✈️ {flight['route']}
 
-📅 {result.get('date')}
+📅 {flight['date']}
 
-💶 €{result.get('price')} p.p.
+💶 €{flight['price']} p.p.
 
-💰 Totaal: €{result.get('total')}
+💰 Totaal: €{flight['total']}
 
-✈️ {result.get('airline')}
+✈️ {flight['airline']}
 
-🔗 {result.get('link')}
+🔗 {flight['link']}
 """
                 )
 
@@ -139,7 +160,7 @@ async def flight_check_loop():
     except Exception as e:
 
         print(
-            f"❌ Flight checker fout: {e}"
+            f"❌ Automatische check fout: {e}"
         )
 
 

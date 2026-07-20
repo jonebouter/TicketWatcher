@@ -1,12 +1,12 @@
 import discord
 from discord.ext import tasks
 import os
+import asyncio
 
 from flight_checker import check_flights
 
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 
@@ -17,7 +17,7 @@ bot = discord.Client(
 )
 
 
-last_results = set()
+sent_deals = set()
 
 
 @bot.event
@@ -31,60 +31,70 @@ async def on_ready():
 @tasks.loop(minutes=10)
 async def flight_check():
 
-    print("Vluchten controleren...")
+    print("Flight check gestart...")
 
     try:
-        results = await check_flights()
+
+        # BELANGRIJK:
+        # requests blijft werken zonder Discord te blokkeren
+        results = await asyncio.to_thread(
+            check_flights
+        )
+
 
         if not results:
-            print("Geen deals gevonden")
+            print("Geen nieuwe deals")
             return
 
 
-        channel = bot.get_channel(CHANNEL_ID)
+        channel = bot.get_channel(
+            CHANNEL_ID
+        )
+
 
         for flight in results:
 
-            flight_id = (
-                flight["date"],
-                flight["origin"],
-                flight["price"]
+
+            deal_id = (
+                flight.get("origin"),
+                flight.get("date"),
+                flight.get("price")
             )
 
 
-            # voorkomt spam
-            if flight_id in last_results:
+            # voorkomt dubbele meldingen
+            if deal_id in sent_deals:
                 continue
 
 
-            last_results.add(flight_id)
+            sent_deals.add(deal_id)
 
 
             message = f"""
 🚨 **NIEUWE BETERE DEAL!**
 
-✈️ {flight['origin']} → {flight['destination']}
+✈️ {flight.get('origin')} → {flight.get('destination')}
 
-📅 Vertrek:
-{flight['date']}
+📅 Datum:
+{flight.get('date')}
 
 👥 Personen:
-{flight['passengers']}
+{flight.get('passengers', 3)}
 
 💶 Prijs:
-€{flight['price']} p.p.
+€{flight.get('price')} p.p.
 
 💰 Totaal:
-€{flight['total']}
+€{flight.get('total')}
 
 ✈️ Airline:
-{flight['airline']}
+{flight.get('airline', 'Onbekend')}
 
 🧳 Bagage:
-{flight['baggage']}
+{flight.get('baggage', '⚠️ Niet bevestigd')}
 
 🔗 Link:
-{flight['link']}
+{flight.get('link')}
 """
 
 
@@ -92,7 +102,8 @@ async def flight_check():
 
 
     except Exception as e:
-        print("Fout tijdens check:")
+
+        print("Fout bij flight check:")
         print(e)
 
 

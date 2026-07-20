@@ -13,7 +13,7 @@ bot = commands.Bot(
     intents=intents
 )
 
-CHANNEL_ID = 1528557273931055265 Hier komt straks je meldingskanaal ID
+CHANNEL_ID = 1528557273931055265 
 
 
 @bot.event
@@ -26,15 +26,15 @@ async def on_ready():
 async def flight_check():
     result = check_flights()
 
-if result["found"]:
-    channel = bot.get_channel(CHANNEL_ID)
+    if result["found"]:
+        channel = bot.get_channel(CHANNEL_ID)
 
-    if channel:
-        await channel.send(
-            f"✈️ **Goedkope vlucht gevonden!**\n"
-            f"🌍 Route: {result['route']}\n"
-            f"📅 Datum: {result['date']}\n"
-            f"💶 Prijs: €{result['price']} p.p."
+        if channel:
+            await channel.send(
+                f"✈️ **Goedkope vlucht gevonden!**\n"
+                f"🌍 Route: {result['route']}\n"
+                f"📅 Datum: {result['date']}\n"
+                f"💶 Prijs: €{result['price']} p.p."
         )
         
         

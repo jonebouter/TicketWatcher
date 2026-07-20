@@ -24,7 +24,7 @@ async def on_ready():
         flight_check.start()
 
 
-@tasks.loop(seconds=30)
+@tasks.loop(hours=7)
 async def flight_check():
     result = check_flights()
 
